@@ -8,17 +8,32 @@ module Kitchen
   class Config
     def new_logger(suite, platform, index)
       name = instance_name(suite, platform)
-      Logger.new(
-                 :color    => Color::COLORS[index % Color::COLORS.size].to_sym,
-                 :logdev   => File.join(log_root, "#{name}.log"),
-                 :level    => Util.to_logger_level(self.log_level),
-                 :progname => name
-                 )
+      logger_opts = {
+        :color    => Color::COLORS[index % Color::COLORS.size].to_sym,
+        :level    => Util.to_logger_level(Leibniz::Config.log_level),
+        :progname => name
+      }
+      if Leibniz::Config.log_to_file
+        logger_opts[:logdev] = File.join(log_root, "#{name}.log")
+      end
+      Logger.new logger_opts
     end
   end
 end
 
 module Leibniz
+
+  class Config
+    class << self
+      @log_to_file = false
+      @log_level = :info
+      attr_accessor :log_to_file, :log_level
+    end
+  end
+
+  def self.configure
+    yield self::Config
+  end
 
   def self.build(specification)
     leibniz_yaml = YAML.load_file(".leibniz.yml")
@@ -59,7 +74,7 @@ module Leibniz
     def initialize(instance)
       @instance = instance
     end
- 
+
     def ip
       instance.driver[:ipaddress]
     end
@@ -96,12 +111,12 @@ module Leibniz
 
     def create_suite(spec)
       suite = Hash.new
-      suite[:name] = @config['suites'].first['name']
-      suite[:run_list] = @config['suites'].first['run_list']
-      suite[:data_bags_path] = @config['suites'].first['data_bags_path']
+      attr_keys = [:name, :run_list, :data_bags_path, :attributes]
+      attr_keys.each do |attr_key|
+        suite[attr_key] = @config['suites'].first[attr_key.to_s]
+      end
       suite
     end
-
 
     def create_platform(spec)
       distro = "#{spec['Operating System']}-#{spec['Version']}"
