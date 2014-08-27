@@ -24,10 +24,27 @@ end
 module Leibniz
 
   class Config
+    class Driver
+      @@custom_attr_keys = [:memory, :cpuexecutioncap]
+      attr_accessor *@@custom_attr_keys
+
+      # Returns an array of custom attributes that can be used in configuring
+      # the vagrant driver
+      def custom_attrs
+        Hash[@@custom_attr_keys.map {|k| [k, self.send(k)]}]
+        .reject{|k,v| v == nil}
+      end
+
+    end
+
+    # Defaults
+    @log_to_file = false
+    @log_level = :info
+    @driver = Driver.new
+
     class << self
-      @log_to_file = false
-      @log_level = :info
       attr_accessor :log_to_file, :log_level
+      attr_reader :driver
     end
   end
 
@@ -129,6 +146,7 @@ module Leibniz
       platform[:driver_config][:network] = [["private_network", {:ip => ipaddress}]]
       platform[:driver_config][:require_chef_omnibus] = spec["Chef Version"] || true
       platform[:driver_config][:ipaddress] = ipaddress
+      platform[:driver_config][:customize] = Leibniz::Config.driver.custom_attrs
       platform[:run_list] = spec["Run List"].split(",")
       platform
     end
